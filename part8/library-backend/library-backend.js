@@ -55,14 +55,25 @@ const resolvers = {
   Query: {
     bookCount: async () => Book.collection.countDocuments(),
     authorCount: async () => Author.collection.countDocuments(),
-    allBooks: async () => Book.find({}),
+    allBooks: async (root, args) => {
+      if (args.genre) {
+        return Book.find({ genres: { $in: args.genre } });
+      } else {
+        return Book.find({});
+      }
+    },
     allAuthors: async () => Author.find({}),
   },
 
   Author: {
-    bookCount: (root) => {
-      // return books.filter((b) => b.author === root.name).length;
+    bookCount: async (root) => {
+      const books = await Book.find({ author: root.id });
+      return books.length;
     },
+  },
+
+  Book: {
+    author: async (root) => Author.findOne({ id: root.author }),
   },
 
   Mutation: {
@@ -77,17 +88,15 @@ const resolvers = {
       const book = new Book({ ...args, author: author.id });
       return book.save();
     },
-    editAuthor(root, args) {
-      const author = authors.find((author) => author.name === args.name);
+    editAuthor: async (root, args) => {
+      const author = await Author.findOne({ name: args.name });
       if (!author) {
         return null;
       }
 
-      const updatedAuthor = { ...author, born: args.setBornTo };
-      authors = authors.map((author) =>
-        author.name !== args.name ? author : updatedAuthor
-      );
-      return updatedAuthor;
+      author.born = args.setBornTo;
+      await author.save();
+      return author;
     },
   },
 };
