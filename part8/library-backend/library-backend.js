@@ -80,13 +80,20 @@ const resolvers = {
     addBook: async (root, args) => {
       const authorName = args.author;
       let author = await Author.findOne({ name: authorName });
-      console.log(author);
-      if (!author) {
-        author = new Author({ name: authorName });
-        await author.save();
+      let book;
+      try {
+        if (!author) {
+          author = new Author({ name: authorName });
+          await author.save();
+        }
+        book = new Book({ ...args, author: author.id });
+        await book.save();
+      } catch (error) {
+        throw new UserInputError(error.message, {
+          invalidArgs: args,
+        });
       }
-      const book = new Book({ ...args, author: author.id });
-      return book.save();
+      return book;
     },
     editAuthor: async (root, args) => {
       const author = await Author.findOne({ name: args.name });
