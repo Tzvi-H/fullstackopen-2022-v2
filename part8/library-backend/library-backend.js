@@ -28,6 +28,8 @@ mongoose
     console.log("error connection to MongoDB:", error.message);
   });
 
+mongoose.set("debug", true);
+
 const typeDefs = gql`
   type User {
     username: String!
@@ -86,12 +88,12 @@ const resolvers = {
     authorCount: async () => Author.collection.countDocuments(),
     allBooks: async (root, args) => {
       if (args.genre) {
-        return Book.find({ genres: { $in: args.genre } });
+        return Book.find({ genres: { $in: args.genre } }).populate("author");
       } else {
-        return Book.find({});
+        return Book.find({}).populate("author");
       }
     },
-    allAuthors: async () => Author.find({}),
+    allAuthors: async () => Author.find({}).populate("books"),
     me: (root, args, context) => context.currentUser,
     favoriteBooks: async (root, args, context) => {
       return Book.find({ genres: { $in: context.currentUser.favouriteGenre } });
@@ -99,15 +101,15 @@ const resolvers = {
   },
 
   Author: {
-    bookCount: async (root) => {
-      const books = await Book.find({ author: root.id });
-      return books.length;
+    bookCount: (root) => {
+      console.log(root);
+      return root.books.length;
     },
   },
 
-  Book: {
-    author: async (root) => Author.findOne({ id: root.author }),
-  },
+  // Book: {
+  //   author: async (root) => Author.findOne({ id: root.author }),
+  // },
 
   Mutation: {
     addBook: async (root, args, context) => {
@@ -125,7 +127,10 @@ const resolvers = {
         }
         book = new Book({ ...args, author: author.id });
         await book.save();
+        author.books.push(book.id);
+        await author.save();
       } catch (error) {
+        console.error(error);
         throw new UserInputError(error.message, {
           invalidArgs: args,
         });
